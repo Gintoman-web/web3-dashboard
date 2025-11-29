@@ -1,8 +1,32 @@
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useBalance, useReadContract, useSendTransaction } from 'wagmi';
-import { formatEther, formatUnits, parseAbi, parseEther, type Address, type BaseError } from 'viem';
+import { formatUnits, parseAbi, parseEther, type Address, type BaseError } from 'viem';
 import { sepolia } from 'wagmi/chains';
+
+const useEthPrice = () => {
+  const [price, setPrice] = useState<number | null>(null);
+
+  useEffect(() => {
+    const fetchPrice = async () => {
+      try {
+        const response = await fetch(
+          'https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd'
+        );
+        const data = await response.json();
+        setPrice(data.ethereum.usd);
+      } catch (error) {
+        console.error('Ошибка получения цены ETH:', error);
+      }
+    };
+
+    fetchPrice();
+    const interval = setInterval(fetchPrice, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return price;
+};
 
 const USDT_ADDRESS = '0xaA8E23Fb1079EA71e0a56F48a2aA51851D8433D0';
 
@@ -20,7 +44,20 @@ function App() {
     address: address,
   });
 
-   const { 
+  const ethPrice = useEthPrice();
+
+  let usdValueDisplay = '';
+  if (balanceData && ethPrice) {
+    const ethAmount = parseFloat(formatUnits(balanceData.value, balanceData.decimals));
+    const totalUsd = ethAmount * ethPrice;
+
+    usdValueDisplay = new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    }).format(totalUsd);
+  }
+
+  const { 
     data: usdtData, 
     isLoading: isUsdtLoading, 
     isError: isUsdtError 
@@ -48,19 +85,28 @@ function App() {
     if (isBalanceLoading) return <div>Загрузка баланса...</div>;
     if (isBalanceError) return <div style={{ color: 'red' }}>Ошибка получения баланса</div>;
 
-     if (balanceData) {
-      const rawEther = formatEther(balanceData.value);
-      const formattedEther = parseFloat(parseFloat(rawEther).toFixed(4));
+    if (balanceData) {
+      const rawValue = formatUnits(balanceData.value, balanceData.decimals);
+      const formattedEther = parseFloat(parseFloat(rawValue).toFixed(4));
 
-       return (
-        <div style={{ fontSize: '18px', fontWeight: 'bold' }}>
-          {formattedEther} {balanceData.symbol}
+      return (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ fontSize: '18px', fontWeight: 'bold' }}>
+            {formattedEther} {balanceData.symbol}
+          </div>
+          
+          {usdValueDisplay && (
+            <div style={{ fontSize: '14px', color: '#555', fontWeight: 'normal' }}>
+              ≈ {usdValueDisplay}
+            </div>
+          )}
         </div>
       );
     }
     
     return null;
   };
+
   const renderUsdtBalance = () => {
     if (chainId !== sepolia.id) {
       return <div style={{fontSize: '12px', color: '#94a3b8'}}>Переключитесь на Sepolia для просмотра USDT</div>;
@@ -70,12 +116,12 @@ function App() {
     if (isUsdtError) return <div style={{ color: 'red' }}>Ошибка USDT</div>;
 
     if (usdtData !== undefined) {
-
-      const formattedUsdt = formatUnits(usdtData, 6);
+      const rawUsdt = formatUnits(usdtData, 6);
+      const formattedUsdt = parseFloat(parseFloat(rawUsdt).toFixed(2));
 
       return (
         <div style={{ fontSize: '18px', fontWeight: 'bold' }}>
-          {parseFloat(formattedUsdt).toFixed(2)} USDT
+          {(formattedUsdt)} USDT
         </div>
       );
     }
@@ -84,7 +130,6 @@ function App() {
 
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!to || !amount) return;
 
     sendTransaction({
@@ -123,11 +168,12 @@ function App() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <h3 style={{ margin: 0, color: '#16a34a' }}>✅ Connected</h3>
             
-            <div style={{ textAlign: 'left' }}>
+            <div style={{ textAlign: 'left', color: '#3c3c3d' }}>
               <strong>Address:</strong>
               <div style={{ 
-                background: '#3c3c3d', 
-                padding: '8px', 
+                background: '#bababeff', 
+                padding: '10px', 
+                border: '1px solid #3c3c3d',
                 borderRadius: '6px',
                 wordBreak: 'break-all',
                 fontFamily: 'monospace',
@@ -138,54 +184,56 @@ function App() {
               </div>
             </div>
 
-            <div style={{ textAlign: 'left' }}>
+            <div style={{ textAlign: 'left', color: '#3c3c3d' }}>
                <strong>Balance:</strong>
                <div style={{
                  marginTop: '4px',
+                 marginBottom: '15px',
                  padding: '10px',
-                 background: '#3c3c3d',
-                 border: '1px solid #cbd5e1',
+                 background: '#bababeff',
+                 border: '1px solid #3c3c3d',
                  borderRadius: '6px'
                }}>
                  {renderEthBalance()}
                </div>
+            </div>
 
-             <div style={{ textAlign: 'left' }}>
-               <strong>Sepolia USDT Balance:</strong>
+              <div style={{ textAlign: 'left', color: '#3c3c3d' }}>
+               <strong>USDT Balance:</strong>
                <div style={{
                  marginTop: '4px',
                  padding: '10px',
                  marginBottom: '20px',
-                 background: '#3c3c3d',
-                 border: '1px solid #cbd5e1',
+                 background: '#bababeff',
+                 border: '1px solid #3c3c3d',
                  borderRadius: '6px'
                }}>
                  {renderUsdtBalance()}
                </div>
-
             </div>
 
             <div style={{
-            background: '#3c3c3d', padding: '24px', borderRadius: '16px',
-            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-          }}>
-             <h2 style={{ marginTop: 0, fontSize: '20px', borderBottom: '1px solid #e2e8f0', paddingBottom: '10px' }}>
+              background: '#bababeff', padding: '10px', borderRadius: '16px',
+              border: '1px solid #3c3c3d',
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+            }}>
+             <h2 style={{ marginTop: 0, fontSize: '20px', borderBottom: '1px solid #3c3c3d', paddingBottom: '10px', marginBottom: '10px', color: '#3c3c3d' }}>
               💸 Отправить ETH
             </h2>
 
             <form onSubmit={handleSend} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
               <div>
-                <label style={{ fontSize: '14px', fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>Получатель</label>
+                <label style={{ fontSize: '14px', fontWeight: 'bold', display: 'block', marginBottom: '5px', color: '#3c3c3d' }}>Получатель</label>
                 <input 
                   placeholder="0x..." 
                   value={to}
                   onChange={(e) => setTo(e.target.value)}
                   disabled={isPending}
-                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #3c3c3d', boxSizing: 'border-box' }}
                 />
               </div>
               <div>
-                <label style={{ fontSize: '14px', fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>Сумма (ETH)</label>
+                <label style={{ fontSize: '14px', fontWeight: 'bold', display: 'block', marginBottom: '5px', color: '#3c3c3d' }}>Сумма (ETH)</label>
                 <input 
                   type="number" 
                   step="0.000000000000000001"
@@ -193,7 +241,7 @@ function App() {
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   disabled={isPending}
-                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #3c3c3d', boxSizing: 'border-box' }}
                 />
               </div>
 
@@ -208,7 +256,7 @@ function App() {
               >
                 {isPending ? 'Подтверждение в кошельке...' : 'Отправить'}
               </button>
-              </form>
+            </form>
 
              {isSuccess && (
               <div style={{ marginTop: '15px', padding: '10px', background: '#dcfce7', color: '#166534', borderRadius: '8px', fontSize: '14px' }}>
@@ -224,10 +272,7 @@ function App() {
             )}
 
             </div>
-
-          
-            </div>
-
+            
             <div style={{ textAlign: 'left' }}>
               <strong>Chain ID:</strong> {chainId}
             </div>
