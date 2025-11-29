@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { useAccount, useBalance, useReadContract, useSendTransaction } from 'wagmi';
+import { useAccount, useBalance, useReadContract, useSendTransaction, useChainId } from 'wagmi';
 import { formatUnits, parseAbi, parseEther, type Address, type BaseError } from 'viem';
-import { sepolia } from 'wagmi/chains';
 
 const useEthPrice = () => {
   const [price, setPrice] = useState<number | null>(null);
@@ -28,10 +27,17 @@ const useEthPrice = () => {
   return price;
 };
 
-const USDT_ADDRESS = '0xaA8E23Fb1079EA71e0a56F48a2aA51851D8433D0';
+const USDC_ADDRESSES: Record<number, Address> = {
+  11155111: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238',
+  421614: '0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d', 
+};
 
 function App() {
-  const { address, isConnected, chainId } = useAccount();
+  const { address, isConnected } = useAccount();
+
+   const chainId = useChainId();
+
+  const usdcAddress = USDC_ADDRESSES[chainId];
 
   const [to, setTo] = useState('');
   const [amount, setAmount] = useState('');
@@ -57,19 +63,30 @@ function App() {
     }).format(totalUsd);
   }
 
+  let inputUsdValue = '';
+  if (amount && ethPrice) {
+    const amountNum = parseFloat(amount);
+    if (!isNaN(amountNum)) {
+      inputUsdValue = new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD'
+      }).format(amountNum * ethPrice);
+    }
+  }
+
   const { 
-    data: usdtData, 
-    isLoading: isUsdtLoading, 
-    isError: isUsdtError 
+    data: usdcData, 
+    isLoading: isUsdcLoading, 
+    isError: isUsdcError 
   } = useReadContract({
-    address: USDT_ADDRESS,
+    address: usdcAddress,
     abi: parseAbi([
       'function balanceOf(address account) view returns (uint256)'
     ]),
     functionName: 'balanceOf',
     args: address ? [address] : undefined,
     query: {
-      enabled: !!address && chainId === sepolia.id,
+      enabled: !!address && !!usdcAddress,
     }
   });
 
@@ -107,21 +124,21 @@ function App() {
     return null;
   };
 
-  const renderUsdtBalance = () => {
-    if (chainId !== sepolia.id) {
-      return <div style={{fontSize: '12px', color: '#94a3b8'}}>Переключитесь на Sepolia для просмотра USDT</div>;
+  const renderUsdcBalance = () => {
+    if (!usdcAddress) {
+      return <div style={{fontSize: '12px', color: '#94a3b8'}}>USDC не поддерживается в этой сети</div>;
     }
 
-    if (isUsdtLoading) return <div>Загрузка USDT...</div>;
-    if (isUsdtError) return <div style={{ color: 'red' }}>Ошибка USDT</div>;
+    if (isUsdcLoading) return <div>Загрузка USDC...</div>;
+    if (isUsdcError) return <div style={{ color: 'red' }}>Ошибка USDC</div>;
 
-    if (usdtData !== undefined) {
-      const rawUsdt = formatUnits(usdtData, 6);
-      const formattedUsdt = parseFloat(parseFloat(rawUsdt).toFixed(2));
+    if (usdcData !== undefined) {
+      const rawUsdc = formatUnits(usdcData, 6);
+      const formattedUsdc= parseFloat(parseFloat(rawUsdc).toFixed(2));
 
       return (
         <div style={{ fontSize: '18px', fontWeight: 'bold' }}>
-          {(formattedUsdt)} USDT
+          {(formattedUsdc)} USDC
         </div>
       );
     }
@@ -199,7 +216,7 @@ function App() {
             </div>
 
               <div style={{ textAlign: 'left', color: '#3c3c3d' }}>
-               <strong>USDT Balance:</strong>
+               <strong>USDC Balance:</strong>
                <div style={{
                  marginTop: '4px',
                  padding: '10px',
@@ -208,7 +225,7 @@ function App() {
                  border: '1px solid #3c3c3d',
                  borderRadius: '6px'
                }}>
-                 {renderUsdtBalance()}
+                 {renderUsdcBalance()}
                </div>
             </div>
 
@@ -236,7 +253,7 @@ function App() {
                 <label style={{ fontSize: '14px', fontWeight: 'bold', display: 'block', marginBottom: '5px', color: '#3c3c3d' }}>Сумма (ETH)</label>
                 <input 
                   type="number" 
-                  step="0.000000000000000001"
+                  step="0.0001"
                   placeholder="0.01" 
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
@@ -244,6 +261,12 @@ function App() {
                   style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #3c3c3d', boxSizing: 'border-box' }}
                 />
               </div>
+
+              {inputUsdValue && (
+                      <div style={{ textAlign: 'right', fontSize: '12px', color: '#555', marginTop: '4px', fontWeight: '500' }}>
+                        ≈ {inputUsdValue}
+                      </div>
+                    )}
 
               <button 
                 type="submit" 

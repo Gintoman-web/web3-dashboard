@@ -11,7 +11,8 @@ import { WagmiProvider } from 'wagmi';
 import {
   mainnet,
   arbitrum,
-  sepolia
+  sepolia,
+  arbitrumSepolia
 } from 'wagmi/chains';
 import {
   QueryClientProvider,
@@ -21,7 +22,7 @@ import {
 const config = getDefaultConfig({
   appName: 'My Crypto App',
   projectId: 'YOUR_PROJECT_ID',
-  chains: [mainnet, arbitrum, sepolia],
+  chains: [mainnet, arbitrum, sepolia, arbitrumSepolia],
 });
 
 const queryClient = new QueryClient();
