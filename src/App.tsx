@@ -49,8 +49,20 @@ function App() {
   const [to, setTo] = useState('');
   const [amount, setAmount] = useState('');
 
+// --- НОВОЕ: Стейт направления обмена ---
+const [isEthToUsdc, setIsEthToUsdc] = useState(true);
+
   // Swap State
   const [swapSellAmount, setSwapSellAmount] = useState('');
+
+  // --- НОВОЕ: Динамические переменные для токенов ---
+  const tokenIn = isEthToUsdc ? WETH_ADDRESS : usdcAddress;
+  const tokenOut = isEthToUsdc ? usdcAddress : WETH_ADDRESS;
+  const symbolIn = isEthToUsdc ? 'ETH' : 'USDC';
+  const symbolOut = isEthToUsdc ? 'USDC' : 'ETH';
+
+  const decimalsIn = isEthToUsdc ? 18 : 6;
+  const decimalsOut = isEthToUsdc ? 6 : 18;
 
   // --- HOOKS: Balance ---
   const { 
@@ -101,6 +113,15 @@ function App() {
     }
   });
 
+  // --- НОВОЕ: Получение баланса для отображения в поле Sell ---
+  const getSellBalance = () => {
+    if (isEthToUsdc) {
+      return balanceData ? parseFloat(formatUnits(balanceData.value, 18)).toFixed(4) : '0';
+    } else {
+      return usdcData ? parseFloat(formatUnits(usdcData, 6)).toFixed(2) : '0';
+    }
+  };
+
   // --- HOOK: Uniswap V3 Quoter ---
   const { data: quoteData, isLoading: isQuoteLoading } = useReadContract({
     address: QUOTER_ADDRESS,
@@ -109,10 +130,10 @@ function App() {
       'function quoteExactInputSingle(QuoteExactInputSingleParams params) view returns (uint256 amountOut, uint160 sqrtPriceX96After, uint32 initializedTicksCrossed, uint256 gasEstimate)'
     ]),
     functionName: 'quoteExactInputSingle',
-    args: usdcAddress ? [{
-      tokenIn: WETH_ADDRESS,
-      tokenOut: usdcAddress,
-      amountIn: parseEther(swapSellAmount || '0'),
+    args: (usdcAddress && swapSellAmount && parseFloat(swapSellAmount) > 0) ? [{
+      tokenIn: tokenIn as Address,
+      tokenOut: tokenOut as Address,
+      amountIn: parseUnits(swapSellAmount, decimalsIn),
       fee: 3000,
       sqrtPriceLimitX96: 0n,
     }] : undefined,
@@ -125,7 +146,7 @@ function App() {
   } else if (quoteData) {
     const amountOut = Array.isArray(quoteData) ? quoteData[0] : quoteData;
     if (typeof amountOut === 'bigint') {
-       buyAmountDisplay = formatUnits(amountOut, 6);
+       buyAmountDisplay = formatUnits(amountOut, decimalsOut);
     }
   }
 
@@ -162,6 +183,11 @@ function App() {
   });
 
   // --- HANDLERS ---
+  const handleToggleDirection = () => {
+    setIsEthToUsdc(!isEthToUsdc);
+    setSwapSellAmount('');
+  };
+
   const renderEthBalance = () => {
     if (isBalanceLoading) return <div>Loading balance...</div>;
     if (isBalanceError) return <div style={{ color: 'red' }}>Error fetching balance</div>;
@@ -253,11 +279,11 @@ function App() {
     }
   };
 
-  // --- НОВОЕ: Функция Обмена ETH -> USDC ---
+  // --- Функция Обмена ETH -> USDC ---
   const handleSwap = () => {
     if (!usdcAddress || !address || !swapSellAmount) return;
     
-    const amountInWei = parseEther(swapSellAmount);
+    const amountInWei = parseUnits(swapSellAmount, decimalsIn);
 
     console.log("Swapping on Router:", SWAP_ROUTER_02_ADDRESS);
 
@@ -269,15 +295,15 @@ function App() {
       ]),
       functionName: 'exactInputSingle',
       args: [{
-        tokenIn: WETH_ADDRESS,
-        tokenOut: usdcAddress,
+        tokenIn: tokenIn as Address,
+        tokenOut: tokenOut as Address,
         fee: 3000,
         recipient: address,
         amountIn: amountInWei,
         amountOutMinimum: 0n,
         sqrtPriceLimitX96: 0n,
       }],
-      value: amountInWei, 
+      value: isEthToUsdc ? amountInWei : 0n, 
     });
   };
 
@@ -465,7 +491,10 @@ function App() {
                   border: '1px solid #3c3c3d'
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
-                    <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#64748b' }}>Sell Amount</label>
+                    <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#64748b' }}>Sell {symbolIn}</label>
+                    <span style={{ fontSize: '12px', color: '#64748b' }}>
+                      Balance: {getSellBalance()}
+                    </span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <input 
@@ -489,24 +518,34 @@ function App() {
                       borderRadius: '16px', 
                       border: '1px solid #cbd5e1', 
                       fontWeight: 'bold', 
-                      fontSize: '14px' 
+                      fontSize: '18px',
+                      color: '#3c3c3d'
                     }}>
-                      ETH
+                      {symbolIn}
                     </div>
                   </div>
                 </div>
 
-                {/* Arrow Separator */}
+                {/* Arrow Separator & Toggle Button */}
                 <div style={{ display: 'flex', justifyContent: 'center', margin: '-5px 0' }}>
-                  <div style={{ 
-                    background: '#f8fafc', 
-                    borderRadius: '50%', 
-                    padding: '4px', 
-                    border: '1px solid #cbd5e1',
-                    zIndex: 1
-                  }}>
-                    ⬇️
-                  </div>
+                  <button 
+                    onClick={handleToggleDirection}
+                    style={{ 
+                      background: '#f8fafc', 
+                      borderRadius: '50%', 
+                      padding: '8px', 
+                      border: '1px solid #cbd5e1',
+                      zIndex: 1,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '16px'
+                    }}
+                    title="Switch Direction"
+                  >
+                    ⇅
+                  </button>
                 </div>
 
                 {/* Buy Input Card (Auto-filled) */}
@@ -517,7 +556,7 @@ function App() {
                   border: '1px solid #3c3c3d'
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
-                     <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#64748b' }}>Buy Amount</label>
+                     <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#64748b' }}>Buy {symbolOut}</label>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <input 
@@ -541,9 +580,10 @@ function App() {
                       borderRadius: '16px', 
                       border: '1px solid #cbd5e1', 
                       fontWeight: 'bold', 
-                      fontSize: '14px' 
+                      fontSize: '18px',
+                      color: '#3c3c3d' 
                     }}>
-                      USDC
+                      {symbolOut}
                     </div>
                   </div>
                 </div>
@@ -565,7 +605,7 @@ function App() {
                     opacity: (!swapSellAmount || isSwapPending || isQuoteLoading) ? 0.7 : 1
                   }}
                 >
-                  {isSwapPending ? 'Swapping...' : 'Swap'}
+                  {isSwapPending ? 'Swapping...' : `Swap ${symbolIn} -> ${symbolOut}`}
                 </button>
 
                 {isSwapSuccess && (
@@ -584,7 +624,7 @@ function App() {
               </div>
             </div>
 
-            <div style={{ textAlign: 'left', marginTop: '10px' }}>
+            <div style={{ textAlign: 'left', marginTop: '10px', color: '#3c3c3d' }}>
               <strong>Chain ID:</strong> {chainId}
             </div>
           </div>
