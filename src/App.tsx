@@ -39,7 +39,7 @@ function App() {
   const [sendTo, setSendTo] = useState('');
   const [sendAmount, setSendAmount] = useState('');
 
-  // --- SWAP HOOK (Вся логика обмена тут) ---
+  // --- SWAP HOOK ---
   const {
     sellAmount, setSellAmount, buyAmount, isEthToUsdc, symbolIn, symbolOut,
     allowance, amountInWei, isApproving, isSwapping, isSuccess: isSwapSuccess,
@@ -67,7 +67,7 @@ function App() {
     writeContract: writeTransfer, error: usdcError 
   } = useWriteContract();
 
-  // --- HELPERS: Display ---
+  // --- HELPERS ---
   let usdValueDisplay = '';
   if (balanceData && ethPrice) {
     const ethAmount = parseFloat(formatUnits(balanceData.value, balanceData.decimals));
@@ -107,6 +107,20 @@ function App() {
     }
   };
 
+  const getSwapSellBalance = () => {
+    if (isEthToUsdc) return balanceData ? parseFloat(formatUnits(balanceData.value, 18)).toFixed(4) : '0';
+    return usdcData ? parseFloat(formatUnits(usdcData, 6)).toFixed(2) : '0';
+  };
+
+  const isSendPending = isEthPending || isUsdcPending;
+  const isSendSuccess = isEthSuccess || isUsdcSuccess;
+  const sendTxHash = ethHash || usdcHash;
+  const sendError = ethError || usdcError;
+  const stepAmount = sendTokenType === 'ETH' ? '0.000000000000000001' : '0.000001';
+
+  const isApproveNeeded = !isEthToUsdc && amountInWei > 0n && allowance < amountInWei;
+  const isSwapLoading = isApproving || isSwapping;
+
   // --- RENDER HELPERS ---
   const renderEthBalance = () => {
     if (isBalanceLoading) return <div>Loading...</div>;
@@ -134,194 +148,163 @@ function App() {
     return null;
   };
 
-  // Для отображения баланса в поле Swap
-  const getSwapSellBalance = () => {
-    if (isEthToUsdc) return balanceData ? parseFloat(formatUnits(balanceData.value, 18)).toFixed(4) : '0';
-    return usdcData ? parseFloat(formatUnits(usdcData, 6)).toFixed(2) : '0';
-  };
-
-  const isSendPending = isEthPending || isUsdcPending;
-  const isSendSuccess = isEthSuccess || isUsdcSuccess;
-  const sendTxHash = ethHash || usdcHash;
-  const sendError = ethError || usdcError;
-  const stepAmount = sendTokenType === 'ETH' ? '0.000000000000000001' : '0.000001';
-
-  // Логика кнопки Swap
-  const isApproveNeeded = !isEthToUsdc && amountInWei > 0n && allowance < amountInWei;
-  const isSwapLoading = isApproving || isSwapping;
-
-  return (
-    <div style={{
-      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-      minHeight: '100vh', gap: '24px', fontFamily: 'sans-serif', marginTop: '15px'
-    }}>
+  return (<div className="app-container">
 
       <h1>My Web3 Wallet</h1>
       <ConnectButton />
 
-      <div style={{
-        padding: '20px', border: '1px solid #e2e8f0', borderRadius: '12px',
-        backgroundColor: '#f8fafc', width: '100%', maxWidth: '400px',
-        textAlign: 'center', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', marginBottom: '15px'
-      }}>
+      <div className="wallet-card">
         {isConnected ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <h3 style={{ margin: 0, color: '#16a34a' }}>✅ Connected</h3>
+            <h3 className="status-connected">✅ Connected</h3>
             
-            <div style={{ textAlign: 'left', color: '#3c3c3d' }}>
+            <div className="info-row">
               <strong>Address:</strong>
-              <div style={{ 
-                background: '#bababeff', padding: '10px', border: '1px solid #3c3c3d',
-                borderRadius: '6px', wordBreak: 'break-all', fontFamily: 'monospace', fontSize: '14px', marginTop: '4px'
-              }}>
-                {address}
-              </div>
+              <div className="info-box address-text">{address}</div>
             </div>
 
-            <div style={{ textAlign: 'left', color: '#3c3c3d' }}>
+            <div className="info-row">
                <strong>Balance:</strong>
-               <div style={{ marginTop: '4px', marginBottom: '15px', padding: '10px', background: '#bababeff', border: '1px solid #3c3c3d', borderRadius: '6px' }}>
-                 {renderEthBalance()}
-               </div>
+               <div className="info-box">{renderEthBalance()}</div>
             </div>
 
-            <div style={{ textAlign: 'left', color: '#3c3c3d' }}>
+            <div className="info-row">
                <strong>USDC Balance:</strong>
-               <div style={{ marginTop: '4px', padding: '10px', marginBottom: '20px', background: '#bababeff', border: '1px solid #3c3c3d', borderRadius: '6px' }}>
-                 {renderUsdcBalance()}
-               </div>
+               <div className="info-box">{renderUsdcBalance()}</div>
             </div>
 
             {/* --- SEND SECTION --- */}
-            <div style={{
-              background: '#bababeff', padding: '10px', borderRadius: '16px',
-              border: '1px solid #3c3c3d', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-            }}>
-             <h2 style={{ marginTop: 0, fontSize: '20px', borderBottom: '1px solid #3c3c3d', paddingBottom: '10px', marginBottom: '10px', color: '#3c3c3d' }}>
-              💸 Send Assets
-            </h2>
-            <form onSubmit={handleSend} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-              <div>
-                <label style={{ fontSize: '14px', fontWeight: 'bold', display: 'block', marginBottom: '5px', color: '#3c3c3d' }}>Asset</label>
+            <div className="action-section">
+             <h2 className="section-title">💸 Send Assets</h2>
+             
+             <form onSubmit={handleSend}>
+              <div className="form-group">
+                <label className="input-label">Asset</label>
                 <select 
+                  className="styled-select"
                   value={sendTokenType}
                   onChange={(e) => setSendTokenType(e.target.value as 'ETH' | 'USDC')}
                   disabled={isSendPending}
-                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #3c3c3d', boxSizing: 'border-box' }}
                 >
                   <option value="ETH">ETH</option>
                   <option value="USDC">USDC</option>
                 </select>
               </div>
-              <div>
-                <label style={{ fontSize: '14px', fontWeight: 'bold', display: 'block', marginBottom: '5px', color: '#3c3c3d' }}>Recipient</label>
+              <div className="form-group">
+                <label className="input-label">Recipient</label>
                 <input 
+                  className="styled-input"
                   placeholder="0x..." value={sendTo} onChange={(e) => setSendTo(e.target.value)} disabled={isSendPending}
-                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #3c3c3d', boxSizing: 'border-box' }}
                 />
               </div>
-              <div>
-                <label style={{ fontSize: '14px', fontWeight: 'bold', display: 'block', marginBottom: '5px', color: '#3c3c3d' }}>Amount</label>
+              <div className="form-group">
+                <label className="input-label">Amount</label>
                 <input 
+                  className="styled-input"
                   type="number" min="0" step={stepAmount} placeholder="0.01" 
                   value={sendAmount} onChange={handleSendAmountChange} disabled={isSendPending}
-                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #3c3c3d', boxSizing: 'border-box' }}
                 />
               </div>
+              
               {inputUsdValue && sendTokenType === 'ETH' && (
                 <div style={{ textAlign: 'right', fontSize: '12px', color: '#555', marginTop: '4px', fontWeight: '500' }}>≈ {inputUsdValue}</div>
               )}
+
               <button 
-                type="submit" disabled={isSendPending || !sendTo || !sendAmount}
-                style={{
-                  background: isSendPending ? '#94a3b8' : '#3b82f6', color: 'white', padding: '12px',
-                  borderRadius: '8px', border: 'none', fontWeight: 'bold', cursor: isSendPending ? 'not-allowed' : 'pointer', marginTop: '10px'
-                }}
+                type="submit" 
+                disabled={isSendPending || !sendTo || !sendAmount}
+                className={`btn-primary btn-blue ${isSendPending ? 'btn-disabled' : ''}`}
               >
                 {isSendPending ? 'Confirming...' : `Send ${sendTokenType}`}
               </button>
             </form>
+
              {isSendSuccess && (
-              <div style={{ marginTop: '15px', padding: '10px', background: '#dcfce7', color: '#166534', borderRadius: '8px', fontSize: '14px' }}>
+              <div className="msg-box msg-success">
                 ✅ <strong>Sent!</strong><br/><span style={{ fontSize: '12px', wordBreak: 'break-all' }}>Hash: {sendTxHash}</span>
               </div>
             )}
             {sendError && (
-              <div style={{ marginTop: '15px', padding: '10px', background: '#fee2e2', color: '#991b1b', borderRadius: '8px', fontSize: '14px' }}>
+              <div className="msg-box msg-error">
                 ❌ Error: {(sendError as BaseError).shortMessage || sendError.message}
               </div>
             )}
             </div>
 
-            {/* --- SWAP SECTION (USING HOOK) --- */}
-            <div style={{
-              background: '#bababeff', padding: '10px', borderRadius: '16px',
-              border: '1px solid #3c3c3d', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', marginTop: '10px'
-            }}>
-              <h2 style={{ marginTop: 0, fontSize: '20px', borderBottom: '1px solid #3c3c3d', paddingBottom: '10px', marginBottom: '15px', color: '#3c3c3d' }}>
-                🔄 Swap Assets
-              </h2>
+            {/* --- SWAP SECTION --- */}
+            <div className="action-section">
+              <h2 className="section-title">🔄 Swap Assets</h2>
             
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div style={{ background: '#f1f5f9', padding: '12px', borderRadius: '12px', border: '1px solid #3c3c3d' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
-                    <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#64748b' }}>Sell {symbolIn}</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                
+                {/* Sell Input */}
+                <div className="swap-input-card">
+                  <div className="swap-header">
+                    <label className="input-label">Sell {symbolIn}</label>
                     <span style={{ fontSize: '12px', color: '#64748b' }}>Bal: {getSwapSellBalance()}</span>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div className="swap-row">
                     <input 
+                      className="big-input"
                       type="number" placeholder="0.0" value={sellAmount} onChange={(e) => setSellAmount(e.target.value)}
-                      style={{ flex: 1, background: 'transparent', border: 'none', fontSize: '24px', outline: 'none', color: '#333', width: '100%' }}
                     />
-                    <div style={{ background: '#fff', padding: '4px 8px', borderRadius: '16px', border: '1px solid #cbd5e1', fontWeight: 'bold', fontSize: '14px' }}>{symbolIn}</div>
+                    <div className="token-badge">{symbolIn}</div>
                   </div>
                 </div>
 
+                {/* Toggle Button */}
                 <div style={{ display: 'flex', justifyContent: 'center', margin: '-5px 0' }}>
-                  <button 
-                    onClick={toggleDirection}
-                    style={{ background: '#f8fafc', borderRadius: '50%', padding: '8px', border: '1px solid #cbd5e1', zIndex: 1, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}
-                  >⇅</button>
+                  <button onClick={toggleDirection} className="btn-toggle">⇅</button>
                 </div>
 
-                <div style={{ background: '#f1f5f9', padding: '12px', borderRadius: '12px', border: '1px solid #3c3c3d' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
-                     <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#64748b' }}>Buy {symbolOut}</label>
+                {/* Buy Input */}
+                <div className="swap-input-card">
+                  <div className="swap-header">
+                     <label className="input-label">Buy {symbolOut}</label>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div className="swap-row">
                     <input 
+                      className="big-input"
                       type="text" placeholder="Calculating..." value={buyAmount} disabled
-                      style={{ flex: 1, background: 'transparent', border: 'none', fontSize: '24px', outline: 'none', color: '#333', width: '100%' }}
                     />
-                     <div style={{ background: '#fff', padding: '4px 8px', borderRadius: '16px', border: '1px solid #cbd5e1', fontWeight: 'bold', fontSize: '14px' }}>{symbolOut}</div>
+                     <div className="token-badge">{symbolOut}</div>
                   </div>
                 </div>
 
+                {/* Main Action Button */}
                 <button 
                   onClick={isApproveNeeded ? handleApprove : handleSwap}
                   disabled={!sellAmount || isSwapLoading}
-                  style={{
-                    width: '100%',
-                    background: isSwapLoading ? '#94a3b8' : (isApproveNeeded ? '#f59e0b' : '#ec4899'), 
-                    color: 'white', padding: '16px', borderRadius: '16px', border: 'none', 
-                    fontWeight: 'bold', fontSize: '18px',
-                    cursor: (!sellAmount || isSwapLoading) ? 'not-allowed' : 'pointer',
-                    marginTop: '5px', opacity: (!sellAmount || isSwapLoading) ? 0.7 : 1
-                  }}
+                  className={`btn-primary btn-large ${
+                    isSwapLoading ? 'btn-disabled' : (isApproveNeeded ? 'btn-yellow' : 'btn-pink')
+                  }`}
                 >
+                  {isSwapLoading && <span className="animate-spin">⏳</span>} 
+                  
                   {isSwapLoading 
                     ? (isApproving ? 'Approving...' : 'Swapping...') 
                     : (isApproveNeeded ? `Approve ${symbolIn}` : `Swap ${symbolIn} -> ${symbolOut}`)
                   }
                 </button>
 
-                {isSwapSuccess && (
-                  <div style={{ marginTop: '15px', padding: '10px', background: '#dcfce7', color: '#166534', borderRadius: '8px', fontSize: '14px' }}>
-                    ✅ <strong>Swapped!</strong><br/><span style={{ fontSize: '12px', wordBreak: 'break-all' }}>Hash: {swapTxHash}</span>
-                  </div>
+                {/* Success Link */}
+                {isSwapSuccess && swapTxHash && (
+                  <a 
+                    href={`https://sepolia.etherscan.io/tx/${swapTxHash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="etherscan-link"
+                  >
+                    <div>✅ <strong>Transaction Successful!</strong></div>
+                    <div style={{ textDecoration: 'underline', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      View on Etherscan ↗
+                    </div>
+                  </a>
                 )}
+
+                {/* Error Msg */}
                 {swapError && (
-                  <div style={{ marginTop: '15px', padding: '10px', background: '#fee2e2', color: '#991b1b', borderRadius: '8px', fontSize: '14px' }}>
+                  <div className="msg-box msg-error">
                     ❌ Error: {(swapError as BaseError).shortMessage || swapError.message}
                   </div>
                 )}
@@ -332,7 +315,7 @@ function App() {
           </div>
         ) : (
           <div style={{ color: '#64748b' }}>
-            <h3 style={{ margin: '0 0 10px 0', color: '#ef4444' }}>❌ Disconnected</h3>
+            <h3 className="status-disconnected">❌ Disconnected</h3>
             <p>Please connect wallet</p>
           </div>
         )}

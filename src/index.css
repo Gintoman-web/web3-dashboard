@@ -1,3 +1,29 @@
+:root {
+  --bg-body: #0f0f0f;
+  --bg-card: #f8fafc;
+  --bg-inner: #f1f5f9;
+  --bg-highlight: #bababeff;
+  
+  --text-primary: #333333;
+  --text-secondary: #64748b;
+  --text-white: #ffffff;
+  
+  --border-color: #3c3c3d;
+  --border-light: #e2e8f0;
+  
+  --btn-blue: #3b82f6;
+  --btn-pink: #ec4899;
+  --btn-yellow: #f59e0b;
+  --btn-disabled: #94a3b8;
+  
+  --success-bg: #dcfce7;
+  --success-text: #166534;
+  --success-border: #86efac;
+  
+  --error-bg: #fee2e2;
+  --error-text: #991b1b;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -6,12 +32,277 @@
 
 body {
   font-family: system-ui, -apple-system, sans-serif;
-  background-color: #0f0f0f;
-  color: #ffffff;
+  background-color: var(--bg-body);
+  color: var(--text-white);
   min-height: 100vh;
 }
 
-h2 {
-    text-align: center;
-    padding-top: 50px;
+/* --- Layout --- */
+.app-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  gap: 24px;
+  margin-top: 15px;
+  padding-bottom: 50px;
+}
+
+h1 {
+  margin-bottom: 10px;
+}
+
+/* --- Main Wallet Card --- */
+.wallet-card {
+  padding: 20px;
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  background-color: var(--bg-card);
+  width: 100%;
+  max-width: 400px;
+  text-align: center;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  color: var(--text-primary);
+}
+
+.status-connected {
+  margin: 0;
+  color: #16a34a;
+}
+
+.status-disconnected {
+  margin: 0 0 10px 0; 
+  color: #ef4444;
+}
+
+/* --- Info Blocks --- */
+.info-row {
+  text-align: left;
+  color: var(--border-color);
+  margin-bottom: 12px;
+}
+
+.info-box {
+  background: var(--bg-highlight);
+  padding: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  margin-top: 4px;
+  word-break: break-all;
+}
+
+.address-text {
+  font-family: monospace;
+  font-size: 14px;
+}
+
+.balance-text {
+  font-size: 18px;
+  font-weight: bold;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.usd-approx {
+  font-size: 14px;
+  color: #555;
+  font-weight: normal;
+}
+
+/* --- Section Containers (Send/Swap) --- */
+.action-section {
+  background: var(--bg-highlight);
+  padding: 15px;
+  border-radius: 16px;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  margin-top: 15px;
+}
+
+.section-title {
+  margin-top: 0;
+  font-size: 20px;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 10px;
+  margin-bottom: 15px;
+  color: var(--border-color);
+}
+
+/* --- Forms & Inputs --- */
+.form-group {
+  margin-bottom: 15px;
+  text-align: left;
+}
+
+.input-label {
+  font-size: 14px;
+  font-weight: bold;
+  display: block;
+  margin-bottom: 5px;
+  color: var(--border-color);
+}
+
+.styled-input, .styled-select {
+  width: 100%;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  box-sizing: border-box;
+  font-size: 16px;
+}
+
+/* --- Swap Inputs --- */
+.swap-input-card {
+  background: var(--bg-inner);
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+}
+
+.swap-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 5px;
+}
+
+.swap-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.big-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  font-size: 24px;
+  outline: none;
+  color: var(--text-primary);
+  width: 100%;
+}
+
+.token-badge {
+  background: #fff;
+  padding: 4px 8px;
+  border-radius: 16px;
+  border: 1px solid #cbd5e1;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+/* --- Buttons --- */
+.btn-toggle {
+  background: var(--bg-card);
+  border-radius: 50%;
+  padding: 8px;
+  border: 1px solid #cbd5e1;
+  z-index: 1;
+  cursor: pointer;
+  font-size: 16px;
+  transition: transform 0.2s;
+}
+.btn-toggle:hover {
+  transform: rotate(180deg);
+}
+
+.btn-primary {
+  width: 100%;
+  padding: 12px; /* Send button size */
+  border-radius: 8px;
+  border: none;
+  font-weight: bold;
+  cursor: pointer;
+  color: white;
+  margin-top: 10px;
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-large {
+  padding: 16px; /* Swap button size */
+  border-radius: 16px;
+  font-size: 18px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Button Colors */
+.btn-blue { background-color: var(--btn-blue); }
+.btn-pink { background-color: var(--btn-pink); }
+.btn-yellow { background-color: var(--btn-yellow); }
+.btn-disabled { 
+  background-color: var(--btn-disabled); 
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+/* Button Animations (Hover) */
+.btn-primary:not(:disabled):hover {
+  transform: scale(1.02);
+  filter: brightness(1.1);
+}
+
+.btn-blue:not(:disabled):hover {
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.btn-pink:not(:disabled):hover {
+  transform: scale(1.02) translateY(-2px);
+  box-shadow: 0 6px 20px rgba(236, 72, 153, 0.4);
+}
+
+.btn-yellow:not(:disabled):hover {
+  transform: scale(1.02) translateY(-2px);
+  box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4);
+}
+
+/* --- Messages --- */
+.msg-box {
+  margin-top: 15px;
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.msg-success {
+  background: var(--success-bg);
+  color: var(--success-text);
+}
+
+.msg-error {
+  background: var(--error-bg);
+  color: var(--error-text);
+}
+
+.etherscan-link {
+  margin-top: 15px;
+  padding: 12px;
+  background: var(--success-bg);
+  color: var(--success-text);
+  border-radius: 8px;
+  font-size: 14px;
+  text-decoration: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--success-border);
+  transition: background 0.2s;
+}
+
+.etherscan-link:hover {
+  background: #bbf7d0;
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+  display: inline-block;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
