@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useBalance, useReadContract, useSendTransaction, useWriteContract, useChainId } from 'wagmi';
-import { formatUnits, parseAbi, parseEther, parseUnits, type Address, type BaseError } from 'viem';
+import { formatUnits, parseAbi, parseEther, parseUnits, isAddress, type Address, type BaseError } from 'viem';
 import { useSwap } from './hooks/useSwap'; // Импорт нашего хука
 
 // --- CONSTANTS ---
@@ -67,6 +67,33 @@ function App() {
     writeContract: writeTransfer, error: usdcError 
   } = useWriteContract();
 
+  // --- VALIDATION LOGIC: SEND ---
+  const isRecipientValid = isAddress(sendTo);
+  const showRecipientError = sendTo !== '' && !isRecipientValid;
+
+  const currentBalance = sendTokenType === 'ETH' 
+    ? (balanceData ? parseFloat(formatUnits(balanceData.value, 18)) : 0)
+    : (usdcData ? parseFloat(formatUnits(usdcData, 6)) : 0);
+
+    const amountNum = parseFloat(sendAmount);
+  const isInsufficientBalance = !isNaN(amountNum) && amountNum > currentBalance;
+
+  const isSendFormValid = 
+    isRecipientValid && 
+    !isNaN(amountNum) && 
+    amountNum > 0 && 
+    !isInsufficientBalance;
+
+    // --- VALIDATION LOGIC: SWAP ---
+    const currentSwapBalance = isEthToUsdc
+    ? (balanceData ? parseFloat(formatUnits(balanceData.value, 18)) : 0)
+    : (usdcData ? parseFloat(formatUnits(usdcData, 6)) : 0);
+
+    const sellAmountNum = parseFloat(sellAmount);
+  const isInsufficientSwapBalance = !isNaN(sellAmountNum) && sellAmountNum > currentSwapBalance;
+
+  const isSwapFormValid = !isNaN(sellAmountNum) && sellAmountNum > 0 && !isInsufficientSwapBalance;
+
   // --- HELPERS ---
   let usdValueDisplay = '';
   if (balanceData && ethPrice) {
@@ -84,15 +111,15 @@ function App() {
 
   // --- HANDLERS: Send ---
   const handleSendAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    if (val === '') { setSendAmount(''); return; }
-    if (parseFloat(val) < 0) return;
+  const val = e.target.value;
+  if (val === '' || /^[0-9]*[.,]?[0-9]*$/.test(val)) {
     setSendAmount(val);
-  };
+  }
+};
 
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!sendTo || !sendAmount) return;
+    if (!isSendFormValid) return;
 
     if (sendTokenType === 'ETH') {
       sendTransaction({ to: sendTo as Address, value: parseEther(sendAmount) });
@@ -107,16 +134,14 @@ function App() {
     }
   };
 
-  const getSwapSellBalance = () => {
-    if (isEthToUsdc) return balanceData ? parseFloat(formatUnits(balanceData.value, 18)).toFixed(4) : '0';
-    return usdcData ? parseFloat(formatUnits(usdcData, 6)).toFixed(2) : '0';
+  const getSwapSellBalanceDisplay = () => {
+    return currentSwapBalance.toFixed(isEthToUsdc ? 4 : 2);
   };
 
   const isSendPending = isEthPending || isUsdcPending;
   const isSendSuccess = isEthSuccess || isUsdcSuccess;
   const sendTxHash = ethHash || usdcHash;
   const sendError = ethError || usdcError;
-  const stepAmount = sendTokenType === 'ETH' ? '0.000000000000000001' : '0.000001';
 
   const isApproveNeeded = !isEthToUsdc && amountInWei > 0n && allowance < amountInWei;
   const isSwapLoading = isApproving || isSwapping;
@@ -193,17 +218,29 @@ function App() {
               <div className="form-group">
                 <label className="input-label">Recipient</label>
                 <input 
-                  className="styled-input"
-                  placeholder="0x..." value={sendTo} onChange={(e) => setSendTo(e.target.value)} disabled={isSendPending}
+                  className={`styled-input ${showRecipientError ? 'error' : ''}`}
+                  placeholder="0x..." 
+                  value={sendTo} 
+                  onChange={(e) => setSendTo(e.target.value)} 
+                  disabled={isSendPending}
                 />
+                {showRecipientError && (
+                  <div className="input-error-msg">⚠️ Invalid EVM address</div>
+                )}
               </div>
               <div className="form-group">
                 <label className="input-label">Amount</label>
                 <input 
-                  className="styled-input"
-                  type="number" min="0" step={stepAmount} placeholder="0.01" 
-                  value={sendAmount} onChange={handleSendAmountChange} disabled={isSendPending}
+                  className={`styled-input ${isInsufficientBalance ? 'error' : ''}`}
+                  type="text" 
+                  placeholder="0.01" 
+                  value={sendAmount} 
+                  onChange={handleSendAmountChange} 
+                  disabled={isSendPending}
                 />
+                {isInsufficientBalance && (
+                  <div className="input-error-msg">⚠️ Insufficient balance</div>
+                )}
               </div>
               
               {inputUsdValue && sendTokenType === 'ETH' && (
@@ -212,8 +249,8 @@ function App() {
 
               <button 
                 type="submit" 
-                disabled={isSendPending || !sendTo || !sendAmount}
-                className={`btn-primary btn-blue ${isSendPending ? 'btn-disabled' : ''}`}
+                disabled={isSendPending || !isSendFormValid}
+                className={`btn-primary btn-blue ${(!isSendFormValid || isSendPending) ? 'btn-disabled' : ''}`}
               >
                 {isSendPending ? 'Confirming...' : `Send ${sendTokenType}`}
               </button>
@@ -241,15 +278,25 @@ function App() {
                 <div className="swap-input-card">
                   <div className="swap-header">
                     <label className="input-label">Sell {symbolIn}</label>
-                    <span style={{ fontSize: '12px', color: '#64748b' }}>Bal: {getSwapSellBalance()}</span>
+                    <span style={{ fontSize: '12px', color: '#64748b' }}>Bal: {getSwapSellBalanceDisplay()}</span>
                   </div>
                   <div className="swap-row">
-                    <input 
-                      className="big-input"
-                      type="number" placeholder="0.0" value={sellAmount} onChange={(e) => setSellAmount(e.target.value)}
-                    />
+                    <input className={`big-input ${isInsufficientSwapBalance ? 'error' : ''}`}
+                           type="text"
+                           placeholder="0.0" 
+                           value={sellAmount} 
+                           onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === '' || /^[0-9]*[.,]?[0-9]*$/.test(val)) {
+                              setSellAmount(val);
+                                }
+                               }}
+                               />
                     <div className="token-badge">{symbolIn}</div>
                   </div>
+                  {isInsufficientSwapBalance && (
+                    <div className="input-error-msg" style={{ marginTop: '5px' }}>⚠️ Insufficient balance</div>
+                  )}
                 </div>
 
                 {/* Toggle Button */}
@@ -274,9 +321,9 @@ function App() {
                 {/* Main Action Button */}
                 <button 
                   onClick={isApproveNeeded ? handleApprove : handleSwap}
-                  disabled={!sellAmount || isSwapLoading}
+                  disabled={!sellAmount || isSwapLoading || !isSwapFormValid}
                   className={`btn-primary btn-large ${
-                    isSwapLoading ? 'btn-disabled' : (isApproveNeeded ? 'btn-yellow' : 'btn-pink')
+                    (isSwapLoading || !isSwapFormValid) ? 'btn-disabled' : (isApproveNeeded ? 'btn-yellow' : 'btn-pink')
                   }`}
                 >
                   {isSwapLoading && <span className="animate-spin">⏳</span>} 

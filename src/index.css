@@ -302,6 +302,32 @@ h1 {
   display: inline-block;
 }
 
+/* --- Validation States --- */
+.styled-input.error {
+  border-color: var(--error-text);
+  background-color: #fff1f2; /* Очень светло-красный фон */
+}
+
+.styled-input.error:focus {
+  outline: none;
+  border-color: var(--error-text);
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
+}
+
+.input-error-msg {
+  color: var(--error-text);
+  font-size: 12px;
+  margin-top: 4px;
+  text-align: left;
+}
+
+.input-hint {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+  text-align: left;
+}
+
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }

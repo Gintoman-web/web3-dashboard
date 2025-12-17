@@ -1,5 +1,8 @@
 # 🦄 Ultimate Crypto Dashboard
 
+![Dashboard Preview](./public/screenshots/dashboardMain.png)
+🚀 Live Demo(https://web3-dashboard-rose.vercel.app/)
+
 A modern, decentralized application (dApp) built to demonstrate advanced Web3 interactions, including real-time asset tracking and token swapping via Uniswap V3.
 
 ![Project Status](https://img.shields.io/badge/status-active-success)

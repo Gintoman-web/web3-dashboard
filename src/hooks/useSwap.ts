@@ -1,11 +1,13 @@
 import { useState, useMemo } from 'react';
 import { useReadContract, useWriteContract, useChainId } from 'wagmi';
 import { parseAbi, parseUnits, formatUnits, erc20Abi, type Address } from 'viem';
+import { useDebounce } from './useDebounce';
 
 // --- CONSTANTS ---
 const QUOTER_ADDRESS = '0xEd1f6473345F45b75F8179591dd5bA1888cf2FB3';
 const SWAP_ROUTER_02_ADDRESS = '0x3bFA4769FB09eefC5a80d6E87c3B9C650f7Ae48E';
 const WETH_ADDRESS = '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14';
+const SLIPPAGE = 100n;
 
 const USDC_ADDRESSES: Record<number, Address> = {
   11155111: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238', // Sepolia
@@ -20,6 +22,9 @@ export function useSwap(address: Address | undefined) {
   const [sellAmount, setSellAmount] = useState('');
   const [isEthToUsdc, setIsEthToUsdc] = useState(true);
   const [txType, setTxType] = useState<'approve' | 'swap' | null>(null);
+
+  // --- SECURITY: DEBOUNCE ---
+  const debouncedSellAmount = useDebounce(sellAmount, 500);
 
   // --- CONFIG ---
   const tokenConfig = useMemo(() => {
@@ -49,10 +54,16 @@ export function useSwap(address: Address | undefined) {
       sqrtPriceLimitX96: 0n,
     }] : undefined,
     query: { 
-      enabled: !!usdcAddress && !!sellAmount && parseFloat(sellAmount) > 0,
-      staleTime: 10000,
+      enabled: !!usdcAddress && !!debouncedSellAmount && parseFloat(debouncedSellAmount) > 0,
+      staleTime: 30000,
     }
   });
+
+  const amountOutBigInt = useMemo(() => {
+    if (!quoteData) return 0n;
+    const val = Array.isArray(quoteData) ? quoteData[0] : quoteData;
+    return typeof val === 'bigint' ? val : 0n;
+  }, [quoteData]);
 
   const buyAmount = useMemo(() => {
     if (isQuoteLoading) return 'Calculating...';
@@ -100,9 +111,15 @@ export function useSwap(address: Address | undefined) {
   };
 
   const handleSwap = () => {
-    if (!usdcAddress || !address) return;
+    if (!usdcAddress || !address || amountOutBigInt === 0n) return;
     setTxType('swap');
+
     const amountInWei = parseUnits(sellAmount, tokenConfig.decimalsIn);
+
+     // --- SECURITY: SLIPPAGE CALCULATION ---
+     const amountOutMinimum = (amountOutBigInt * (10000n - SLIPPAGE)) / 10000n;
+
+    console.log(`Swapping with slippage protection. Min output: ${formatUnits(amountOutMinimum, tokenConfig.decimalsOut)}`);
 
     writeContract({
       address: SWAP_ROUTER_02_ADDRESS,
@@ -117,7 +134,7 @@ export function useSwap(address: Address | undefined) {
         fee: 3000,
         recipient: address,
         amountIn: amountInWei,
-        amountOutMinimum: 0n,
+        amountOutMinimum: amountOutMinimum,
         sqrtPriceLimitX96: 0n,
       }],
       value: isEthToUsdc ? amountInWei : 0n, 
